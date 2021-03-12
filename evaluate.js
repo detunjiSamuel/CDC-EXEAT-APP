@@ -1,20 +1,44 @@
 require("dotenv").config();
-global.fetch = require("node-fetch");
-const axiosCookieJarSupport = require("axios-cookiejar-support").default;
-//const tough = require("tough-cookie");
 const jsdom = require("jsdom");
 const { JSDOM } = jsdom;
 
 const puppeteer = require("puppeteer");
 const axios = require("axios"); // typescript const axios = require('axios').default;
 
-//axiosCookieJarSupport(axios);
-
-//const cookieJar = new tough.CookieJar();
-
 const LOGIN_URL = "https://moodle.covenantuniversity.edu.ng/login/index.php";
 let feedbackId = 44084;
-const SAFE_VALUES = [1,4,4,4,1,4,4,2,3,2,2,3,3,3,2,3,3,2,2,3,2,3,3,2,3,3,2,3,2,4];
+const SAFE_VALUES = [
+  1,
+  4,
+  4,
+  4,
+  1,
+  4,
+  4,
+  2,
+  3,
+  2,
+  2,
+  3,
+  3,
+  3,
+  2,
+  3,
+  3,
+  2,
+  2,
+  3,
+  2,
+  3,
+  3,
+  2,
+  3,
+  3,
+  2,
+  3,
+  2,
+  4,
+];
 
 const evaluation = async (
   username = process.env.USER_ID,
@@ -31,7 +55,6 @@ const evaluation = async (
   //get sessionID
   await page.setRequestInterception(true);
   page.on("request", async (request) => {
-
     const url = request.url();
     if (url.endsWith("notifications")) {
       const sessKey = getSessionKey(url);
@@ -40,45 +63,56 @@ const evaluation = async (
       await browser.close();
       const { err, data } = await getCourseDetails(cookie[0].value, sessKey);
       courseIds = await extractId(data["courses"]);
-        console.info(`sesskey  = ${sessKey} | cookie = ${cookie[0].value}`);
+      console.info(`sesskey  = ${sessKey} | cookie = ${cookie[0].value}`);
       //TODO remove added courseID
-       const fields =  await getFields(feedbackId , cookie[0].value);
+      const fields = await getFields(feedbackId, cookie[0].value);
 
-
-      for(let courseId in courseIds )
-      {
-           await submitFeedback(feedbackId ,courseId ,courseIds[courseId] ,fields,sessKey ,cookie[0].value );
+      for (let courseId in courseIds) {
+        await submitFeedback(
+          feedbackId,
+          courseId,
+          courseIds[courseId],
+          fields,
+          sessKey,
+          cookie[0].value
+        );
       }
     } else request.continue();
   });
 };
-const submitFeedback = async (feedbackId , courseId , courseName ,fields , sessKey ,cookie )=>{
+const submitFeedback = async (
+  feedbackId,
+  courseId,
+  courseName,
+  fields,
+  sessKey,
+  cookie
+) => {
   const url = `https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php?id=${feedbackId}&courseid=${courseId}`;
- console.info(`staring: ${courseName}`)
+  console.info(`staring: ${courseName}`);
   const data = {
     ...fields,
     id: feedbackId,
     courseid: courseId,
     sessKey: sessKey,
-
   };
-  
+
   const config = {
     method: "post",
-    url : 'https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php',
+    url: "https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php",
     headers: {
       Cookie: `MoodleSession=${cookie}`,
-      Referer : url,
-      "content-type": "application/x-www-form-urlencoded"
+      Referer: url,
+      "content-type": "application/x-www-form-urlencoded",
     },
-    "referrer" : url,
+    referrer: url,
     data,
   };
   //process.exit()
-   response = await axios(config);
-  console.info(`ending: ${courseName}`)
+  response = await axios(config);
+  console.info(`ending: ${courseName}`);
   return;
-}
+};
 
 // GET form field and values
 const getFields = async (
@@ -104,12 +138,10 @@ const getFields = async (
   const min = 1;
   const max = 4;
 
-   //  assign safe_value to each field
-  for(let i = 0 ; i< SAFE_VALUES.length;i++)
-  {
+  //  assign safe_value to each field
+  for (let i = 0; i < SAFE_VALUES.length; i++) {
     values[options[i].name] = SAFE_VALUES[i];
   }
-  
 
   const name = dom.window.document.querySelector(
     "div.col-md-9.form-inline.felement input[type=text]"
@@ -126,8 +158,6 @@ const getFields = async (
     lastitempos: null,
   };
 };
-
-
 
 const extractId = (courses) => {
   const data = {};
@@ -174,9 +204,6 @@ const handleTying = async (page, selectorId, inserted) => {
   return;
 };
 
-  evaluation();
-
+evaluation();
 
 // SAFE_VALUES = [1,4,4,4,1,4,4,2,3,2,2,3,3,3,2,3,3,2,2,3,2,3,3,2,3,3,2,3,2,4];
-
-
