@@ -4,6 +4,7 @@
   "description": "To help Covenant University students evaluate course",
   "main": "evaluate.js",
   "scripts": {
+    "start": "node evaluate.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
