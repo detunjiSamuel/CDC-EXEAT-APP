@@ -20,7 +20,9 @@
     "axios": "^0.21.1",
     "axios-cookiejar-support": "^1.0.1",
     "body-parser": "^1.19.0",
+    "cheerio": "^1.0.0-rc.5",
     "dotenv": "^8.2.0",
+    "jsdom": "^16.5.0",
     "node-fetch": "^2.6.1",
     "puppeteer": "^8.0.0",
     "tough-cookie": "^4.0.0"

@@ -1,168 +1,209 @@
-require('dotenv').config();
+require("dotenv").config();
 global.fetch = require("node-fetch");
-const axiosCookieJarSupport = require('axios-cookiejar-support').default;
-const tough = require('tough-cookie');
+const axiosCookieJarSupport = require("axios-cookiejar-support").default;
+//const tough = require("tough-cookie");
+const jsdom = require("jsdom");
+const { JSDOM } = jsdom;
 
-const puppeteer = require('puppeteer');
-const axios = require('axios'); // typescript const axios = require('axios').default;
+const puppeteer = require("puppeteer");
+const axios = require("axios"); // typescript const axios = require('axios').default;
 
-axiosCookieJarSupport(axios);
- 
-const cookieJar = new tough.CookieJar();
+//axiosCookieJarSupport(axios);
 
-const LOGIN_URL = 'https://moodle.covenantuniversity.edu.ng/login/index.php';
-let feedbackId = 43858;
+//const cookieJar = new tough.CookieJar();
 
+const LOGIN_URL = "https://moodle.covenantuniversity.edu.ng/login/index.php";
+let feedbackId = 44084;
+const SAFE_VALUES = [1,4,4,4,1,4,4,2,3,2,2,3,3,3,2,3,3,2,2,3,2,3,3,2,3,3,2,3,2,4];
 
+const evaluation = async (
+  username = process.env.USER_ID,
+  password = process.env.USER_PASSWORD
+) => {
+  const browser = await puppeteer.launch({
+    headless: process.env.NODE_ENV == "development" ? false : true,
+    //slowMo: 250, // slow down by 250ms
+  });
 
-const evaluation = async (username = process.env.USER_ID, password = process.env.USER_PASSWORD) => {
-    const browser = await puppeteer.launch({
-        headless: process.env.NODE_ENV == 'development' ? false : true,
-        //slowMo: 250, // slow down by 250ms 
-    });
+  //login portion
+  const page = await browser.newPage();
+  await login(page, username, password);
+  //get sessionID
+  await page.setRequestInterception(true);
+  page.on("request", async (request) => {
+    // console.log(request.method());
 
-    //login portion
-    const page = await browser.newPage();
-    await login(page, username, password);
-    //get sessionID
-    await page.setRequestInterception(true);
-    page.on('request', async request => {
-        // console.log(request.method());
+    const url = request.url();
+    if (url.endsWith("notifications")) {
+      const sessKey = getSessionKey(url);
+      request.abort();
+      const cookie = await page.cookies(url);
+      await browser.close();
+      console.log("starting course details");
+      const { err, data } = await getCourseDetails(cookie[0].value, sessKey);
+      courseIds = await extractId(data["courses"]);
+      console.log(`sesskey  = ${sessKey} | cookie = ${cookie[0].value}`);
+      //TODO remove added courseID
+        console.log("staring getFields")
+       const fields =  await getFields(feedbackId , cookie[0].value);
+       //console.log(fields)
+     // process.exit()
 
-        const url = request.url();
-        if (url.endsWith('notifications')) {
-            const sessKey = getSessionKey(url)
-            request.abort();
-            const cookie = await page.cookies(url);
-            await browser.close();
-            const { err, data } = await getCourseDetails(cookie[0].value, sessKey);
-            courseIds = extractId(data['courses']);
+      console.log("about to loop")
+      for(let courseId in courseIds )
+      {
+           // console.log(courseId);
+           await submitFeedback(feedbackId ,courseId ,courseIds[courseId] ,fields,sessKey ,cookie[0].value );
+          // console.log(cookie[0].value)
+      }
 
-            for(courseid in courseIds)
+      //remove id and make it auto
+      //let fields = getFields(feedbackId , cookie[0].value , 15 )
+      /*             for(courseid in courseIds)
             {
                 console.log('doing' + courseid)
 
-                await runFeedback(feedbackId, courseid , sessKey ,cookie , /* courseid['shortname'] */)
+                await runFeedback(feedbackId, courseid , sessKey ,cookie , /* courseid['shortname'] //add end comment)
             }
+ */
+    } else request.continue();
+  });
+};
+const submitFeedback = async (feedbackId , courseId , courseName ,fields , sessKey ,cookie )=>{
+  const url = `https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php?id=${feedbackId}&courseid=${courseId}`;
+  console.log(`staring: ${courseName}`)
+  const data = {
+    ...fields,
+    id: feedbackId,
+    courseid: courseId,
+    sessKey: sessKey,
 
-
-        }
-        else
-            request.continue();
-    });
-
-
-
+  };
+  
+  const config = {
+    method: "post",
+    url : 'https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php',
+    headers: {
+      Cookie: `MoodleSession=${cookie}`,
+      Referer : url,
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    "referrer" : url,
+    data,
+  };
+  console.log(config)
+  //process.exit()
+   response = await axios(config);
+  //console.log(response.data)
+  console.log(`ending: ${courseName}`)
+  return;
 }
 
-const runFeedback = async (feedbackId, courseId, sessionKey, cookie ,courseName=0) => {
-    const url = `https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php?id=${feedbackId}&courseid=${courseId}`;
-    const data = {
-        id: 43858,
-        courseid: courseId,
-        gopage: 0,
-        lastpage: null ,
-        startitempos: null,
-        lastitempos: null,
-        sesskey: sessionKey,
-        _qf__mod_feedback_complete_form: 1,
-        multichoice_392: 1,
-        multichoice_393: 4,
-        multichoice_395: 4,
-        multichoice_396: 4,
-        multichoice_398: 1,
-        multichoice_399: 4,
-        multichoice_422: 4,
-        multichoice_400: 2,
-        multichoice_423: 3,
-        multichoice_402: 2,
-        multichoice_403: 2,
-        multichoice_404: 3,
-        multichoice_406: 3,
-        multichoice_424: 3,
-        multichoice_407: 2,
-        multichoice_425: 3,
-        multichoice_410: 3,
-        multichoice_409: 2,
-        multichoice_412: 2,
-        multichoice_413: 3,
-        multichoice_415: 2,
-        multichoice_426: 3,
-        multichoice_416: 3,
-        multichoice_428: 2,
-        multichoice_429: 3,
-        multichoice_431: 3,
-        multichoice_432: 2,
-        multichoice_418: 3,
-        multichoice_419: 2,
-        textfield_433: 'dr',
-        multichoice_421: 4,
-        savevalues: 'Submit your answers'
-    }
+// GET form field and values
+const getFields = async (
+  feedbackId = 44084,
+  cookie = "hvfu1pdkj717ioac7797t47930",
+  courseId = "19"
+) => {
+  console.info("getFields starting")
+  let config = {
+    method: "get",
+    url: `https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php?id=${feedbackId}&courseid=${courseId}`,
+    headers: {
+      Cookie: `MoodleSession=${cookie}`,
+    },
+  };
 
-    const config = {
-        method: 'post',
-        url,
-       jar: cookieJar, 
-        withCredentials: true,
-        headers: {
-            'Cookie': `MoodleSession=${cookie}`,
-            'Content-Type': 'text/plain'
-        },
-        data
-    };
-    console.log('got to responae top'+courseName)
-    const response = await axios(config);
-    
-    console.log(`done with ${courseName} with `)
+  let response = await axios(config);
+  let { data } = response;
+  // Parse HTML
+  const dom = new JSDOM(data);
+  // Get options
+  let options = dom.window.document.querySelectorAll(".custom-select");
+  console.log(options.length)
+  let values = {};
+  const min = 1;
+  const max = 4;
+
+   //  assign safe_value to each field
+  for(let i = 0 ; i< SAFE_VALUES.length;i++)
+  {
+    values[options[i].name] = SAFE_VALUES[i];
+  }
+  
+/*   for (let option of options) {
+    // Getting a random integer between two values inclusive
+    values[option.name] = Math.floor(Math.random() * (max - min + min)) + min;
+    console.log(option.name);
+  }
+ */
+  const name = dom.window.document.querySelector(
+    "div.col-md-9.form-inline.felement input[type=text]"
+  ).name;
+  //TODO find a way to get all names
+  values[name] = ".";
+  return {
+    ...values,
+    savevalues: "Submit your answers",
+    _qf__mod_feedback_complete_form: 1,
+    gopage: 0,
+    lastpage: null,
+    startitempos: null,
+    lastitempos: null,
+  };
+};
 
 
-
-}
 
 const extractId = (courses) => {
-    const data = {};
-    for (course of courses) {
-        data[course.id] = course.shortname
-        console.log(course.id)
-    }
-    return data;
-}
+  const data = {};
+  for (course of courses) {
+    data[course.id] = course.shortname;
+    console.log(course.id);
+  }
+  return data;
+};
 
 const getCourseDetails = async (cookie, sessionKey) => {
-    const data = '[{"index":0,"methodname":"core_course_get_enrolled_courses_by_timeline_classification","args":{"offset":0,"limit":0,"classification":"all","sort":"fullname","customfieldname":"","customfieldvalue":""}}]';
+  const data =
+    '[{"index":0,"methodname":"core_course_get_enrolled_courses_by_timeline_classification","args":{"offset":0,"limit":0,"classification":"all","sort":"fullname","customfieldname":"","customfieldvalue":""}}]';
 
-    const config = {
-        method: 'post',
-        url: `https://moodle.covenantuniversity.edu.ng/lib/ajax/service.php?sesskey=${sessionKey}&info=core_course_get_enrolled_courses_by_timeline_classification`,
-        headers: {
-            'Cookie': `MoodleSession=${cookie}`,
-            'Content-Type': 'text/plain'
-        },
-        data
-    };
+  const config = {
+    method: "post",
+    url: `https://moodle.covenantuniversity.edu.ng/lib/ajax/service.php?sesskey=${sessionKey}&info=core_course_get_enrolled_courses_by_timeline_classification`,
+    headers: {
+      Cookie: `MoodleSession=${cookie}`,
+      "Content-Type": "text/plain",
+    },
+    data,
+  };
 
-    const response = await axios(config);
-    return response.data[0];
-}
+  const response = await axios(config);
+  return response.data[0];
+};
 
 const getSessionKey = (url) => {
-    //Todo optimize
-    return url.slice(url.indexOf('=') + 1, url.indexOf('&'))
-}
+  //Todo optimize
+  return url.slice(url.indexOf("=") + 1, url.indexOf("&"));
+};
 
 const login = async (pageInstance, username, password) => {
-    await pageInstance.goto(LOGIN_URL);
-    await handleTying(pageInstance, '#username', username);
-    await handleTying(pageInstance, '#password', password);
-    await (await pageInstance.$('#loginbtn')).click();
-    return;
-}
+  await pageInstance.goto(LOGIN_URL);
+  await handleTying(pageInstance, "#username", username);
+  await handleTying(pageInstance, "#password", password);
+  await (await pageInstance.$("#loginbtn")).click();
+  return;
+};
 
 const handleTying = async (page, selectorId, inserted) => {
-    const field = await page.$(selectorId)
-    await field.type(inserted);
-    return;
-}
+  const field = await page.$(selectorId);
+  await field.type(inserted);
+  return;
+};
 
-evaluation();
+  evaluation();
+
+
+// SAFE_VALUES = [1,4,4,4,1,4,4,2,3,2,2,3,3,3,2,3,3,2,2,3,2,3,3,2,3,3,2,3,2,4];
+
+
