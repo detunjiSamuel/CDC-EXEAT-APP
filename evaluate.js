@@ -31,7 +31,6 @@ const evaluation = async (
   //get sessionID
   await page.setRequestInterception(true);
   page.on("request", async (request) => {
-    // console.log(request.method());
 
     const url = request.url();
     if (url.endsWith("notifications")) {
@@ -39,39 +38,23 @@ const evaluation = async (
       request.abort();
       const cookie = await page.cookies(url);
       await browser.close();
-      console.log("starting course details");
       const { err, data } = await getCourseDetails(cookie[0].value, sessKey);
       courseIds = await extractId(data["courses"]);
-      console.log(`sesskey  = ${sessKey} | cookie = ${cookie[0].value}`);
+        console.info(`sesskey  = ${sessKey} | cookie = ${cookie[0].value}`);
       //TODO remove added courseID
-        console.log("staring getFields")
        const fields =  await getFields(feedbackId , cookie[0].value);
-       //console.log(fields)
-     // process.exit()
 
-      console.log("about to loop")
+
       for(let courseId in courseIds )
       {
-           // console.log(courseId);
            await submitFeedback(feedbackId ,courseId ,courseIds[courseId] ,fields,sessKey ,cookie[0].value );
-          // console.log(cookie[0].value)
       }
-
-      //remove id and make it auto
-      //let fields = getFields(feedbackId , cookie[0].value , 15 )
-      /*             for(courseid in courseIds)
-            {
-                console.log('doing' + courseid)
-
-                await runFeedback(feedbackId, courseid , sessKey ,cookie , /* courseid['shortname'] //add end comment)
-            }
- */
     } else request.continue();
   });
 };
 const submitFeedback = async (feedbackId , courseId , courseName ,fields , sessKey ,cookie )=>{
   const url = `https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php?id=${feedbackId}&courseid=${courseId}`;
-  console.log(`staring: ${courseName}`)
+ console.info(`staring: ${courseName}`)
   const data = {
     ...fields,
     id: feedbackId,
@@ -91,11 +74,9 @@ const submitFeedback = async (feedbackId , courseId , courseName ,fields , sessK
     "referrer" : url,
     data,
   };
-  console.log(config)
   //process.exit()
    response = await axios(config);
-  //console.log(response.data)
-  console.log(`ending: ${courseName}`)
+  console.info(`ending: ${courseName}`)
   return;
 }
 
@@ -105,7 +86,6 @@ const getFields = async (
   cookie = "hvfu1pdkj717ioac7797t47930",
   courseId = "19"
 ) => {
-  console.info("getFields starting")
   let config = {
     method: "get",
     url: `https://moodle.covenantuniversity.edu.ng/mod/feedback/complete.php?id=${feedbackId}&courseid=${courseId}`,
@@ -120,7 +100,6 @@ const getFields = async (
   const dom = new JSDOM(data);
   // Get options
   let options = dom.window.document.querySelectorAll(".custom-select");
-  console.log(options.length)
   let values = {};
   const min = 1;
   const max = 4;
@@ -131,12 +110,7 @@ const getFields = async (
     values[options[i].name] = SAFE_VALUES[i];
   }
   
-/*   for (let option of options) {
-    // Getting a random integer between two values inclusive
-    values[option.name] = Math.floor(Math.random() * (max - min + min)) + min;
-    console.log(option.name);
-  }
- */
+
   const name = dom.window.document.querySelector(
     "div.col-md-9.form-inline.felement input[type=text]"
   ).name;
@@ -159,7 +133,6 @@ const extractId = (courses) => {
   const data = {};
   for (course of courses) {
     data[course.id] = course.shortname;
-    console.log(course.id);
   }
   return data;
 };
